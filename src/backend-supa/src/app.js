@@ -5,6 +5,7 @@ import cors from 'cors';
 import gameRoutes from './routes/gameRoutes.js';
 import categoryRoutes from './routes/categoryRoutes.js';
 import gameCategoriesRoutes from './routes/gameCategoryRoutes.js';
+import userRoutes from './routes/userRoutes.js';
 
 dotenv.config();
 
@@ -17,6 +18,7 @@ app.use(express.json());
 app.use('/api/games', gameRoutes);
 app.use('/api/categories', categoryRoutes);
 app.use('/api/game-categories', gameCategoriesRoutes);
+app.use('/api/users', userRoutes);
 
 // Start the server and listen for HTTP requests
 const PORT = process.env.PORT || 3000;
