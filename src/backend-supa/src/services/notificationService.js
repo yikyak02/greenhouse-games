@@ -9,7 +9,7 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 
 // (async function () {
 //   const { data, error } = await resend.emails.send({
-//     from: 'Acme <onboarding@resend.dev>',
+//     from: 'Your App <noreply@yourdomain.com>',
 //     to: ['delivered@resend.dev'],
 //     subject: 'Hello World',
 //     html: '<strong>It works!</strong>',
@@ -24,7 +24,7 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 
 export async function sendSignupNotification(to, name) {
   const { data, error } = await resend.emails.send({
-    from: 'Acme <onboarding@resend.dev>',
+    from: 'Your App <noreply@yourdomain.com>',
     to: [to],
     subject: 'Welcome!',
     html: `<strong>Hi ${name}, welcome to our app!</strong>`,
