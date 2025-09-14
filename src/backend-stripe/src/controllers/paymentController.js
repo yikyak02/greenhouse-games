@@ -1,10 +1,11 @@
 import stripe from '../services/stripeService.js';
-import database from '../services/supabaseService.js';
+import database from '../../../backend-supa/src/services/supabaseService.js';
+import { sendPurchaseConfirmation } from '../../../backend-supa/src/services/notificationService.js';
 
 // Create payment intent from cart
 export const createPaymentIntentFromCart = async (req, res) => {
   try {
-    const { cartId, userId } = req.body;
+    const { cartId, userId, guestEmail } = req.body;
     
     if (!cartId || !userId) {
       return res.status(400).json({ error: 'Cart ID and User ID are required' });
@@ -41,7 +42,8 @@ export const createPaymentIntentFromCart = async (req, res) => {
       metadata: { 
         userId,
         cartId,
-        gameIds: JSON.stringify(items.map(item => item.games.game_id))
+        gameIds: JSON.stringify(items.map(item => item.games.game_id)),
+        guestEmail: guestEmail || ''
       }
     });
 
@@ -148,6 +150,29 @@ const handleSuccessfulPayment = async (paymentIntent) => {
 
     if (getPaymentError) throw getPaymentError;
 
+    // Fetch order record to get order_id
+    const { data: orderRecord, error: orderFetchError } = await database
+      .from('orders')
+      .select('order_id')
+      .eq('payment_id', paymentData.payment_id)
+      .single();
+
+    if (orderFetchError) throw orderFetchError;
+
+    // Get cart items with game details BEFORE clearing cart
+    const { data: itemsData, error: itemsError } = await database
+      .from('cart_items')
+      .select(`
+        quantity,
+        games (
+          title,
+          price
+        )
+      `)
+      .eq('cart_id', paymentData.cart_id);
+
+    if (itemsError) throw itemsError;
+
     // Update order status
     const { error: orderError } = await database
       .from('orders')
@@ -159,7 +184,51 @@ const handleSuccessfulPayment = async (paymentIntent) => {
 
     if (orderError) throw orderError;
 
-    // Clear the cart after successful payment
+    // Determine destination email
+    const metadata = paymentIntent.metadata || {};
+    const userId = metadata.userId;
+    let toEmail = metadata.guestEmail || '';
+    let displayName = '';
+
+    if (!toEmail && userId) {
+      try {
+        const { data: userRes, error: userErr } = await database.auth.admin.getUserById(userId);
+        if (!userErr) {
+          toEmail = userRes?.user?.email || '';
+        }
+      } catch (e) {
+        console.error('Failed to fetch user by ID for email:', e);
+      }
+
+      try {
+        const { data: profile, error: profileErr } = await database
+          .from('userprofiles')
+          .select('display_name')
+          .eq('user_id', userId)
+          .single();
+        if (!profileErr) {
+          displayName = profile?.display_name || '';
+        }
+      } catch (e) {
+        console.error('Failed to fetch user profile for name:', e);
+      }
+    }
+
+    // Send confirmation email if we have a destination
+    if (toEmail) {
+      const amountPaid = (paymentIntent.amount || 0) / 100;
+      const currency = (paymentIntent.currency || 'usd').toUpperCase();
+      await sendPurchaseConfirmation({
+        to: toEmail,
+        name: displayName,
+        items: itemsData || [],
+        amount: amountPaid,
+        currency,
+        orderId: orderRecord?.order_id,
+      });
+    }
+
+    // Clear the cart after successful payment and email
     const { error: clearCartError } = await database
       .from('cart_items')
       .delete()
