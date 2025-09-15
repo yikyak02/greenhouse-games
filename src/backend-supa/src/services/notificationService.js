@@ -10,8 +10,8 @@ const FROM = process.env.EMAIL_FROM;
 
 // (async function () {
 //   const { data, error } = await resend.emails.send({
-//     from: 'Your App <noreply@yourdomain.com>',
-//     to: ['delivered@resend.dev'],
+//     from: FROM,
+//     to: ['lucassamyl@gmail.com'],
 //     subject: 'Hello World',
 //     html: '<strong>It works!</strong>',
 //   });
